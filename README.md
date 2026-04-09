@@ -133,15 +133,6 @@ python -m pytest utils/pdf_generator.py::__main__ -v
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
 
-## 📄 许可证
-
-MIT License
-
-## 📞 支持与反馈
-
-- 问题反馈：[GitHub Issues](https://github.com/yourusername/ai-chat-export/issues)
-- 功能建议：[GitHub Discussions](https://github.com/yourusername/ai-chat-export/discussions)
-- 联系邮箱：your-email@example.com
 
 ---
 

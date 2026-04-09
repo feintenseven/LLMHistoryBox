@@ -6,7 +6,14 @@
       "Bash(python -c \"import streamlit; print\\('Streamlit:', streamlit.__version__\\)\")",
       "Bash(python -c \"import reportlab; print\\('ReportLab:', reportlab.Version\\)\")",
       "Bash(python:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(find .:*)",
+      "Bash(mv text_cleaner_simple.py text_cleaner.py)",
+      "Bash(mv pdf_generator_simple.py pdf_generator.py)",
+      "Bash(rm -f utils/pdf_generator.py)",
+      "Bash(mv utils/pdf_generator_simple_chinese.py utils/pdf_generator.py)",
+      "Bash(dir test_new_style.pdf)",
+      "Bash(dir test_fixed.pdf)"
     ]
   }
 }

@@ -172,10 +172,48 @@ AI：当然。这个函数使用了一个for循环，循环执行n-2次（当n>2
                 # 显示消息摘要
                 role_icon = "👤" if msg.role == MessageRole.USER else "🤖"
                 role_text = "用户" if msg.role == MessageRole.USER else "AI助手"
-                content_preview = msg.content[:100] + "..." if len(msg.content) > 100 else msg.content
 
                 st.markdown(f"**{role_icon} {role_text}**")
-                st.markdown(content_preview)
+
+                # 使用Markdown渲染预览
+                if TEXT_CLEANER_AVAILABLE:
+                    elements = format_message_for_display(msg)
+                    # 只显示前两个元素作为预览
+                    preview_shown = 0
+                    for elem in elements:
+                        if preview_shown >= 2:  # 最多显示两个元素
+                            st.markdown("...")
+                            break
+
+                        elem_type = elem.get('type', 'text')
+
+                        if elem_type == 'heading':
+                            content = elem.get('content', '')
+                            st.markdown(f"**{content}**")
+                            preview_shown += 1
+                        elif elem_type == 'paragraph':
+                            content = elem.get('content', '')
+                            # 截断长文本
+                            if len(content) > 100:
+                                content = content[:100] + "..."
+                            st.markdown(content, unsafe_allow_html=True)
+                            preview_shown += 1
+                        elif elem_type == 'code':
+                            st.markdown("`[代码块]`")
+                            preview_shown += 1
+                        elif elem_type in ['unordered_list', 'ordered_list']:
+                            st.markdown("`[列表]`")
+                            preview_shown += 1
+                        elif elem_type == 'text':
+                            content = elem.get('content', '')
+                            if len(content) > 100:
+                                content = content[:100] + "..."
+                            st.markdown(content)
+                            preview_shown += 1
+                else:
+                    # 回退到简单预览
+                    content_preview = msg.content[:100] + "..." if len(msg.content) > 100 else msg.content
+                    st.markdown(content_preview)
 
             if selected:
                 selected_messages.append(msg)

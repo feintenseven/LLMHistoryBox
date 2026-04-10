@@ -75,11 +75,11 @@ def setup_chinese_support():
     return "Helvetica"
 
 def clean_text_for_pdf(text):
-    """清理文本"""
+    """清理文本，保留Markdown格式"""
     import re
 
-    # 移除HTML标签
-    text = re.sub(r'<[^>]+>', '', text)
+    # 移除HTML标签但保留Markdown
+    # 不在这里移除HTML标签，因为可能包含格式化标签
 
     # 移除分隔线
     text = text.replace('---', '')
@@ -108,6 +108,57 @@ def clean_text_for_pdf(text):
         cleaned_lines.append(line)
 
     return '\n'.join(cleaned_lines)
+
+def convert_markdown_to_reportlab(text, base_style):
+    """将Markdown文本转换为ReportLab格式，使用基础样式"""
+    import re
+    from reportlab.platypus import Paragraph, Spacer
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib import colors
+
+    # 首先处理Markdown转换为简单HTML
+    # ReportLab的Paragraph支持有限的HTML标签：<b>, <i>, <u>, <font>, <br/>, <bullet>, <seq>
+
+    # 处理代码块（先处理，避免干扰其他处理）
+    text = re.sub(r'```(\w*)\n([\s\S]*?)```', r'<font name="Courier" color="#0066CC">\2</font>', text)
+
+    # 处理标题
+    text = re.sub(r'^### (.+)$', r'<font size="14"><b>\1</b></font><br/>', text, flags=re.MULTILINE)
+    text = re.sub(r'^## (.+)$', r'<font size="16"><b>\1</b></font><br/>', text, flags=re.MULTILINE)
+    text = re.sub(r'^# (.+)$', r'<font size="18"><b>\1</b></font><br/>', text, flags=re.MULTILINE)
+
+    # 处理粗体
+    text = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', text)
+
+    # 处理斜体
+    text = re.sub(r'\*([^*]+)\*', r'<i>\1</i>', text)
+
+    # 处理行内代码
+    text = re.sub(r'`([^`]+)`', r'<font name="Courier">\1</font>', text)
+
+    # 处理无序列表 - 使用简单的项目符号字符
+    lines = text.split('\n')
+    processed_lines = []
+
+    for line in lines:
+        # 检查无序列表项
+        list_match = re.match(r'^[-*]\s+(.+)$', line)
+        if list_match:
+            # 使用Unicode项目符号字符
+            processed_lines.append(f'• {list_match.group(1)}')
+        else:
+            processed_lines.append(line)
+
+    text = '\n'.join(processed_lines)
+
+    # 将换行符转换为<br/>
+    text = text.replace('\n', '<br/>')
+
+    # 创建Paragraph
+    if text.strip():
+        return [Paragraph(text, base_style)]
+    else:
+        return []
 
 def create_conversation_pdf(messages, title="AI对话记录", author="", course="", date=None):
     """创建对话PDF - 确保中文正常显示，添加美观的对话框样式"""
@@ -242,21 +293,20 @@ def create_conversation_pdf(messages, title="AI对话记录", author="", course=
             role_icon = "🤖"
             alignment = TA_LEFT
 
-        # 角色标签 - 放在对话框内
-        role_html = f'<font color="{role_color}"><b>{role_icon} {role_text}</b></font>'
-
-        # 内容
+        # 内容 - 使用Markdown转换
         content = clean_text_for_pdf(msg.content)
         if content.strip():
-            # 将换行符转换为HTML换行标签
-            content_with_breaks = content.replace('\n', '<br/>')
+            # 将角色标签添加到内容开头
+            role_html = f'<font color="{role_color}"><b>{role_icon} {role_text}</b></font><br/>'
+            full_content = role_html + content
 
-            # 将角色标签和内容合并
-            full_content = f"{role_html}<br/>{content_with_breaks}"
+            # 转换Markdown内容
+            markdown_elements = convert_markdown_to_reportlab(full_content, bubble_style)
 
-            # 创建对话框样式的段落
-            bubble_paragraph = Paragraph(full_content, bubble_style)
-            story.append(bubble_paragraph)
+            # 将转换后的元素添加到story中
+            for elem in markdown_elements:
+                story.append(elem)
+
             story.append(Spacer(1, 15))
 
     # 生成PDF

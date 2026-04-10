@@ -25,12 +25,13 @@ python run.py
 streamlit run app.py
 ```
 # 运行功能测试
+```bash
 python test_app.py
-
+```
 # 运行单元测试
+```bash
 python -m pytest
 ```
-
 ### 4. 使用步骤
 1. **粘贴对话**：从AI工具复制完整对话，或上传文本文件
 2. **清理格式**：点击"自动清理"按钮优化格式

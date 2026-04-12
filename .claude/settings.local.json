@@ -13,7 +13,10 @@
       "Bash(rm -f utils/pdf_generator.py)",
       "Bash(mv utils/pdf_generator_simple_chinese.py utils/pdf_generator.py)",
       "Bash(dir test_new_style.pdf)",
-      "Bash(dir test_fixed.pdf)"
+      "Bash(dir test_fixed.pdf)",
+      "Bash(\" testfile_deepseek.md)",
+      "Bash(grep -n \"```\" testfile_deepseek.md)",
+      "Bash(grep:*)"
     ]
   }
 }

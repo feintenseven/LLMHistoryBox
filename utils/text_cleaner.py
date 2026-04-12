@@ -29,10 +29,206 @@ def clean_ai_conversation(text: str) -> str:
     # 统一换行符
     text = text.replace('\r\n', '\n').replace('\r', '\n')
 
+    # 修正代码块格式（将非标准格式转换为标准Markdown代码块）
+    text = fix_code_block_format(text)
+
     # 移除多余的空行
     text = re.sub(r'\n{3,}', '\n\n', text)
 
     return text.strip()
+
+
+def fix_code_block_format(text: str) -> str:
+    """修正非标准的代码块格式为标准的Markdown代码块格式
+
+    处理DeepSeek等AI工具导出的非标准代码格式：
+    1. 单独的编程语言标识行（如"python"、"javascript"等）
+    2. 代码内容
+    3. 转换为标准格式：```language\ncode\n```
+
+    注意：不处理text标识，text当作正常文本输出
+    """
+    lines = text.split('\n')
+    result_lines = []
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+
+        # 检查是否是编程语言标识行（排除text）
+        if _is_programming_language(line):
+            language = line.strip().lower()
+            code_lines = []
+            i += 1
+
+            # 收集代码行，直到遇到空行或明显非代码内容
+            while i < len(lines):
+                next_line = lines[i]
+
+                # 检查是否看起来像代码
+                if not _looks_like_code(next_line, language):
+                    # 如果不是代码，检查是否是另一个语言标识
+                    if _is_programming_language(next_line) or _is_text_indicator(next_line):
+                        break
+                    # 如果以中文开头，停止（根据任务要求：重新出现文字开头的一行）
+                    if _starts_with_chinese(next_line):
+                        break
+
+                code_lines.append(next_line)
+                i += 1
+
+            # 转换为标准代码块格式
+            if code_lines:
+                # 移除代码块末尾的连续空行（保留最后一个空行前的空行）
+                while len(code_lines) > 1 and not code_lines[-1].strip() and not code_lines[-2].strip():
+                    code_lines.pop()
+
+                result_lines.append(f'```{language}')
+                result_lines.extend(code_lines)
+                result_lines.append('```')
+            else:
+                # 如果不是真正的代码块，保留原行
+                result_lines.append(line)
+                i += 1
+        else:
+            result_lines.append(line)
+            i += 1
+
+    return '\n'.join(result_lines)
+
+
+def _is_programming_language(line: str) -> bool:
+    """判断是否为编程语言标识行（排除text）"""
+    line = line.strip().lower()
+    if not line:
+        return False
+
+    # 只处理编程语言，不处理text
+    programming_languages = {
+        'python', 'javascript', 'js', 'java', 'cpp', 'c++', 'c',
+        'go', 'golang', 'rust', 'html', 'css', 'bash', 'shell', 'sh',
+        'sql', 'json', 'xml', 'yaml', 'yml', 'markdown', 'md',
+        'typescript', 'ts', 'php', 'ruby', 'rb', 'swift', 'kotlin',
+        'scala', 'r', 'matlab', 'perl', 'lua'
+    }
+
+    return line in programming_languages
+
+
+def _is_text_indicator(line: str) -> bool:
+    """判断是否为text标识"""
+    return line.strip().lower() == 'text'
+
+
+def _looks_like_code(line: str, language: str) -> bool:
+    """判断一行是否看起来像代码"""
+    line_stripped = line.strip()
+
+    if not line_stripped:
+        return True  # 空行可能是代码的一部分
+
+    # 首先检查是否是明显的非代码文本
+    # 检查是否以常见的非代码文本模式开头
+    non_code_patterns = [
+        r'^\s*[A-Z][a-z]+\s*[:：]\s*$',  # 首字母大写的单词后跟冒号（如"Result:"）
+        r'^\s*[A-Z][a-z]+\s*[:：]\s*\w',  # 首字母大写的单词: 单词（如"Output: here"）
+        r'^\s*运行结果\s*[:：]',  # 中文"运行结果："
+        r'^\s*输出\s*[:：]',  # 中文"输出："
+        r'^\s*结果\s*[:：]',  # 中文"结果："
+        r'^\s*[a-z]+\s*[:：]\s*$',  # 小写单词后跟冒号，但不是代码关键字（如"result:"）
+    ]
+
+    # 排除代码关键字
+    code_keywords = {'else', 'elif', 'case', 'default', 'try', 'catch', 'finally'}
+    line_lower = line_stripped.lower()
+    for keyword in code_keywords:
+        if line_lower.startswith(keyword + ':') or line_lower.startswith(keyword + '：'):
+            # 这是代码关键字后跟冒号，不是非代码文本
+            return True
+
+    for pattern in non_code_patterns:
+        if re.match(pattern, line_stripped):
+            return False
+
+    # 检查常见的代码模式
+    code_patterns = [
+        # 缩进（Python风格）
+        r'^\s{2,}',
+        # 代码关键字
+        r'^\s*(def|class|import|from|if|elif|else|for|while|try|except|finally|with|return|yield|async|await|print|raise|assert|break|continue|pass)\b',
+        r'^\s*(function|var|let|const|export|import|from|return|throw|try|catch|finally|if|else|for|while|do|switch|case|default|break|continue)\b',
+        # 括号
+        r'^\s*[{}()\[\]]',
+        # 变量赋值
+        r'^\s*\w+\s*=\s*\w',  # 变量赋值 a = b
+        # 函数调用
+        r'^\s*\w+\.\w+\(',  # obj.method(
+        r'^\s*\w+\(',  # function(
+        # 注释
+        r'^\s*#.*',
+        r'^\s*//.*',
+        r'^\s*/\*.*',
+        r'^\s*\*.*',
+        # 字符串
+        r'^\s*[\'\"].*',
+    ]
+
+    for pattern in code_patterns:
+        if re.match(pattern, line):
+            return True
+
+    # 检查是否包含代码中常见的运算符（在行中间）
+    code_operators = ['==', '!=', '<', '>', '<=', '>=', '+=', '-=', '*=', '/=', '%=', '&&', '||']
+    for op in code_operators:
+        if op in line:
+            return True
+
+    # 对于简单的=，检查它是否在变量赋值中，而不是在文本中
+    if '=' in line:
+        # 检查是否是变量赋值模式
+        if re.match(r'^\s*\w+\s*=\s*\w', line):
+            return True
+        # 检查是否是函数调用中的等号
+        if re.search(r'\(\s*\w+\s*=\s*\w', line):
+            return True
+
+    # 检查是否是常见的代码结构
+    # 包含点号的方法调用（如console.log）
+    if re.search(r'\w+\.\w+', line):
+        # 但排除看起来像URL或普通文本的情况
+        if not re.match(r'^\s*(http|https|www|ftp)://', line_stripped):
+            return True
+
+    return False
+
+
+def _starts_with_chinese(line: str) -> bool:
+    """判断是否以中文开头"""
+    line_stripped = line.strip()
+
+    if not line_stripped:
+        return False
+
+    # 检查是否以中文开头
+    return re.match(r'^[\u4e00-\u9fff]', line_stripped) is not None
+
+def _is_chinese_text(line: str) -> bool:
+    """判断是否为中文文本"""
+    line_stripped = line.strip()
+
+    if not line_stripped:
+        return False
+
+    # 检查是否以中文开头
+    if re.match(r'^[\u4e00-\u9fff]', line_stripped):
+        return True
+
+    # 检查是否包含中文字符
+    # 检查第一个字符是否为中文字符
+    if line_stripped and re.match(r'[\u4e00-\u9fff]', line_stripped[0]):
+        return True
+    else:
+        return False
 
 def split_into_messages(text: str) -> List[Message]:
     """分割消息，支持多种格式"""
